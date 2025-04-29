@@ -22,7 +22,7 @@ flask_logger = logging.getLogger("flask_app")
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_change_me') # MUST set in .env
+app.secret_key = os.getenv('FLASK_SECRET_KEY') # MUST set in .env
 # Apply ProxyFix if running behind a proxy (like Nginx) for correct URL generation (https)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
