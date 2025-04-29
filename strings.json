@@ -1,0 +1,37 @@
+{
+    "app_name": "PowerPoint Generator",
+    "caption": "*Converse, create, and improve your next PowerPoint slide deck*",
+    "section_headers": [
+        "Step 1: Generate your content",
+        "Step 2: Make it structured",
+        "Step 3: Create the slides",
+        "Bonus Materials"
+    ],
+    "section_captions": [
+        "Let's start by generating some contents for your slides.",
+        "Let's now convert the above generated contents into JSON.",
+        "Let's now create the slides for you.",
+        "Since you have come this far, we have unlocked some more good stuff for you!"
+    ],
+    "input_labels": [
+        "**Describe the topic of the presentation using 10 to 300 characters. Avoid mentioning the count of slides.**"
+    ],
+    "button_labels": [
+        "Generate contents",
+        "Generate JSON",
+        "Make the slides"
+    ],
+    "urls_info": "Here is a list of some online resources that you can consult for further information on this topic:",
+    "image_info": "Got some more minutes? We are also trying to deliver an AI-generated art on the presentation topic, fresh off the studio, just for you!",
+    "content_generation_error": "Unfortunately, PowerPoint Generator failed to generate any content for you! Please try again later.",
+    "json_parsing_error": "Unfortunately, PowerPoint Generator failed to parse the response from LLM! Please try again by rephrasing the query or refreshing the page.",
+    "tos": "PowerPoint Generator is an experimental prototype, and it has its limitations.\nPlease carefully review any and all AI-generated content.",
+    "tos2": "By using PowerPoint Generator, you agree to fair and responsible usage.\nNo liability assumed by any party.",
+    "ai_greetings": [
+        "How may I help you today?",
+        "Stuck with creating your presentation? Let me help you.",
+        "Looks like you have a looming deadline. Can I help you get started with your slide deck?",
+        "Hello! What topic do you have on your mind today?"
+    ],
+    "chat_placeholder": "Write the topic or instructions here"
+}
