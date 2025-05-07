@@ -22,7 +22,7 @@ Your output, i.e., the content of each slide should be VERBOSE, DESCRIPTIVE, and
 Each bullet point should be detailed and explanatory, not just short phrases.
 
 ALWAYS add a concluding slide at the end, containing a list of the key takeaways and an optional call-to-action if relevant to the context.
-Unless explicitly specified in the instructions below, create 10 TO 12 SLIDES in total. You must never create more tha 15 slides.
+Unless explicitly specified in the instructions below, create 10 TO 12 SLIDES in total.
 
 
 ### List of instructions:
@@ -108,21 +108,36 @@ The output must be only a valid and syntactically correct JSON adhering to the f
 }}
 
 
-Also include quiz slides with multiple-choice questions when appropriate by setting "slide_type": "quiz".
+For quiz slides, always create them in pairs:
+1. First slide: Contains the question and 4 multiple-choice options (A, B, C, D)
+2. Second slide: Contains the correct answer and a detailed explanation of why it's correct
 
-Example quiz slide format:
+Both slides count toward the total slide count. Format the quiz slides like this:
+
+Example of first quiz slide (question):
 {{
   "heading": "Quiz: Test Your Knowledge",
   "slide_type": "quiz",
   "quiz_question": "What is the main benefit of AI in healthcare?",
   "quiz_options": [
-    {{"option": "A", "text": "Cost reduction only", "correct": false}},
-    {{"option": "B", "text": "Improved diagnostic accuracy", "correct": true}},
-    {{"option": "C", "text": "Replacing all healthcare workers", "correct": false}},
-    {{"option": "D", "text": "Simplifying medical billing", "correct": false}}
+    {{"option": "A", "text": "Cost reduction only"}},
+    {{"option": "B", "text": "Improved diagnostic accuracy"}},
+    {{"option": "C", "text": "Replacing all healthcare workers"}},
+    {{"option": "D", "text": "Simplifying medical billing"}}
   ],
-  "key_message": "Testing knowledge increases retention",
-  "img_keywords": "quiz game show"
+  "key_message": "Testing knowledge enhances engagement",
+  "img_keywords": "quiz question"
+}}
+
+Example of second quiz slide (answer):
+{{
+  "heading": "Quiz: Answer Explained",
+  "slide_type": "quiz",
+  "correct_option": "B",
+  "answer_text": "Improved diagnostic accuracy",
+  "explanation": "AI in healthcare primarily improves diagnostic accuracy by analyzing medical images, patient data, and scientific literature more comprehensively than humans alone can. This leads to earlier detection of diseases and more personalized treatment plans.",
+  "key_message": "AI enhances human capabilities in healthcare diagnostics",
+  "img_keywords": "medical diagnosis AI"
 }}
 
 ### Output:

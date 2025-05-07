@@ -259,22 +259,22 @@ def _handle_default_display(
         # Luôn thử hiển thị ảnh khi có từ khóa
         if random.random() < IMAGE_DISPLAY_PROBABILITY:
             logger.info(f"Attempting to add image for slide: {slide_json['heading']}")
-            if random.random() < FOREGROUND_IMAGE_PROBABILITY:
-                status = _handle_display_image__in_foreground(
-                    presentation,
-                    slide_json,
-                    slide_width_inch,
-                    slide_height_inch,
-                    pdf_image_getter=pdf_image_getter
-                )
-            else:
-                status = _handle_display_image__in_background(
-                    presentation,
-                    slide_json,
-                    slide_width_inch,
-                    slide_height_inch,
-                    pdf_image_getter=pdf_image_getter
-                )
+            # if random.random() < FOREGROUND_IMAGE_PROBABILITY:
+            status = _handle_display_image__in_foreground(
+                presentation,
+                slide_json,
+                slide_width_inch,
+                slide_height_inch,
+                pdf_image_getter=pdf_image_getter
+            )
+            # else:
+            #     status = _handle_display_image__in_background(
+            #         presentation,
+            #         slide_json,
+            #         slide_width_inch,
+            #         slide_height_inch,
+            #         pdf_image_getter=pdf_image_getter
+            #     )
             
             logger.info(f"Image addition {'successful' if status else 'failed'}")
     if status:
@@ -317,7 +317,7 @@ def _handle_default_display(
         slide_width_inch=slide_width_inch
     )
 
-
+from PIL import Image
 def _handle_display_image__in_foreground(
         presentation: pptx.Presentation(),
         slide_json: dict,
@@ -326,8 +326,8 @@ def _handle_display_image__in_foreground(
         pdf_image_getter=None
 ) -> bool:
     """
-    Create a slide with text and image using a picture placeholder layout. If not image keyword is
-    available, it will add only text to the slide.
+    Create a slide with text and image using a picture placeholder layout.
+    Images are resized to maintain aspect ratio with white padding.
 
     :param presentation: The presentation object.
     :param slide_json: The content of the slide as JSON data.
@@ -377,15 +377,28 @@ def _handle_display_image__in_foreground(
     if not img_keywords:
         # No keywords, so no image search and addition
         return True
+        
+    # Lấy kích thước placeholder
+    placeholder_width = pic_col.width * EMU_TO_INCH_SCALING_FACTOR  # Chuyển đổi sang inches
+    placeholder_height = pic_col.height * EMU_TO_INCH_SCALING_FACTOR
+    logger.info(f"Placeholder size: {placeholder_width}x{placeholder_height} inches")
 
-    # Example modification for _handle_display_image__in_foreground
+    # Xử lý ảnh với padding trắng
     if pdf_image_getter and img_keywords:
         try:
             img_data = pdf_image_getter(img_keywords)
             if img_data and "image_bytes" in img_data:
                 logger.info(f"Adding image from PDF/Pexels for keywords: {img_keywords}")
-                # Use the PDF image data
-                pic_col.insert_picture(io.BytesIO(img_data["image_bytes"]))
+                
+                # Xử lý ảnh với padding trắng
+                padded_img_bytes = _resize_image_with_padding(
+                    io.BytesIO(img_data["image_bytes"]), 
+                    int(placeholder_width * 96),  # Chuyển inches sang pixels (96 DPI)
+                    int(placeholder_height * 96)
+                )
+                
+                # Thêm ảnh đã có padding vào placeholder
+                pic_col.insert_picture(padded_img_bytes)
                 
                 # Add attribution if from Pexels
                 if img_data.get("source") == "pexels" and "page_url" in img_data:
@@ -406,19 +419,83 @@ def _handle_display_image__in_foreground(
     )
 
     if photo_url:
-        pic_col.insert_picture(
-            ims.get_image_from_url(photo_url)
-        )
+        try:
+            # Tải ảnh từ URL
+            img_bytes = ims.get_image_from_url(photo_url)
+            
+            # Xử lý ảnh với padding trắng
+            padded_img_bytes = _resize_image_with_padding(
+                img_bytes, 
+                int(placeholder_width * 96),  # Chuyển inches sang pixels (96 DPI)
+                int(placeholder_height * 96)
+            )
+            
+            # Thêm ảnh đã có padding vào placeholder
+            pic_col.insert_picture(padded_img_bytes)
 
-        _add_text_at_bottom(
-            slide=slide,
-            slide_width_inch=slide_width_inch,
-            slide_height_inch=slide_height_inch,
-            text='Photo provided by Pexels',
-            hyperlink=page_url
-        )
+            _add_text_at_bottom(
+                slide=slide,
+                slide_width_inch=slide_width_inch,
+                slide_height_inch=slide_height_inch,
+                text='Photo provided by Pexels',
+                hyperlink=page_url
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Error processing Pexels image: {e}")
 
     return True
+
+def _resize_image_with_padding(image_bytes, target_width, target_height):
+    """
+    Resize image maintaining aspect ratio and add white padding.
+    
+    :param image_bytes: BytesIO object containing the image
+    :param target_width: Target width in pixels
+    :param target_height: Target height in pixels
+    :return: BytesIO object with padded image
+    """
+    from PIL import Image
+    
+    # Mở ảnh từ bytes
+    with Image.open(image_bytes) as img:
+        # Chuyển đổi ảnh sang RGB nếu là RGBA
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+            
+        # Tính toán tỉ lệ
+        img_ratio = img.width / img.height
+        target_ratio = target_width / target_height
+        
+        # Tính kích thước mới giữ nguyên tỉ lệ
+        if img_ratio > target_ratio:
+            # Ảnh rộng hơn
+            new_width = target_width
+            new_height = int(new_width / img_ratio)
+        else:
+            # Ảnh cao hơn
+            new_height = target_height
+            new_width = int(new_height * img_ratio)
+            
+        # Resize ảnh
+        resized_img = img.resize((new_width, new_height), Image.LANCZOS)
+        
+        # Tạo ảnh mới với nền trắng và kích thước target
+        padded_img = Image.new('RGB', (target_width, target_height), (255, 255, 255))
+        
+        # Tính toán vị trí để đặt ảnh ở giữa
+        paste_x = (target_width - new_width) // 2
+        paste_y = (target_height - new_height) // 2
+        
+        # Dán ảnh đã resize vào ảnh nền trắng
+        padded_img.paste(resized_img, (paste_x, paste_y))
+        
+        # Lưu ảnh vào BytesIO
+        output = io.BytesIO()
+        padded_img.save(output, format='JPEG', quality=95)
+        output.seek(0)
+        
+        return output
 
 
 def _handle_display_image__in_background(
@@ -993,32 +1070,32 @@ def _handle_quiz_slide(
         )
     
     # Add a background image if keywords provided
-    if slide_json.get('img_keywords') and pdf_image_getter:
-        try:
-            img_data = pdf_image_getter(slide_json['img_keywords'])
-            if img_data:
-                # Add image as slide background
-                picture = slide.shapes.add_picture(
-                    image_file=io.BytesIO(img_data["image_bytes"]),
-                    left=0,
-                    top=0,
-                    width=pptx.util.Inches(slide_width_inch),
-                )
-                # Send to back
-                slide.shapes._spTree.remove(picture._element)
-                slide.shapes._spTree.insert(2, picture._element)
+    # if slide_json.get('img_keywords') and pdf_image_getter:
+    #     try:
+    #         img_data = pdf_image_getter(slide_json['img_keywords'])
+    #         if img_data:
+    #             # Add image as slide background
+    #             picture = slide.shapes.add_picture(
+    #                 image_file=io.BytesIO(img_data["image_bytes"]),
+    #                 left=0,
+    #                 top=0,
+    #                 width=pptx.util.Inches(slide_width_inch),
+    #             )
+    #             # Send to back
+    #             slide.shapes._spTree.remove(picture._element)
+    #             slide.shapes._spTree.insert(2, picture._element)
                 
-                # Add attribution if from Pexels
-                if img_data.get("source") == "pexels" and "page_url" in img_data:
-                    _add_text_at_bottom(
-                        slide=slide,
-                        text='Photo provided by Pexels',
-                        hyperlink=img_data["page_url"],
-                        slide_width_inch=slide_width_inch,
-                        slide_height_inch=slide_height_inch
-                    )
-        except Exception as e:
-            logger.error(f"Error adding image to quiz slide: {e}")
+    #             # Add attribution if from Pexels
+    #             if img_data.get("source") == "pexels" and "page_url" in img_data:
+    #                 _add_text_at_bottom(
+    #                     slide=slide,
+    #                     text='Photo provided by Pexels',
+    #                     hyperlink=img_data["page_url"],
+    #                     slide_width_inch=slide_width_inch,
+    #                     slide_height_inch=slide_height_inch
+    #                 )
+    #     except Exception as e:
+    #         logger.error(f"Error adding image to quiz slide: {e}")
     
     return True
 

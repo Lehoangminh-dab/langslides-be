@@ -5,11 +5,14 @@ import logging
 import re
 import sys
 import urllib3
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional, Any
 
+import os
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+from langchain_community.chat_models import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.language_models import BaseLLM, BaseChatModel
 
 
@@ -44,30 +47,20 @@ http_session.mount('https://', adapter)
 http_session.mount('http://', adapter)
 
 
-def get_provider_model(provider_model: str, use_ollama: bool) -> Tuple[str, str]:
+def get_provider_model(model_name: str, use_ollama: bool = True) -> Tuple[str, str]:
     """
-    Parse and get LLM provider and model name from strings like `[provider]model/name-version`.
-
-    :param provider_model: The provider, model name string from `GlobalConfig`.
-    :param use_ollama: Whether Ollama is used (i.e., running in offline mode).
-    :return: The provider and the model name; empty strings in case no matching pattern found.
+    Parse the model name to determine provider and model.
+    
+    :param model_name: The model identifier, possibly with [provider] prefix.
+    :param use_ollama: Whether to use Ollama as default provider.
+    :return: Tuple of (provider, model_name).
     """
-
-    provider_model = provider_model.strip()
-
-    if use_ollama:
-        match = OLLAMA_MODEL_REGEX.match(provider_model)
-        if match:
-            return GlobalConfig.PROVIDER_OLLAMA, match.group(0)
-    else:
-        match = LLM_PROVIDER_MODEL_REGEX.match(provider_model)
-
-        if match:
-            inside_brackets = match.group(1)
-            outside_brackets = match.group(2)
-            return inside_brackets, outside_brackets
-
-    return '', ''
+    # Handle OpenAI provider format [op]gpt-4o
+    if model_name.startswith('[op]'):
+        return 'openai', model_name[4:]
+    
+    # Default to Ollama
+    return 'ollama', model_name
 
 
 def is_valid_llm_provider_model(
@@ -116,123 +109,38 @@ def is_valid_llm_provider_model(
     return True
 
 
-def get_langchain_llm(
-        provider: str,
-        model: str,
-        max_new_tokens: int,
-        api_key: str = '',
-        azure_endpoint_url: str = '',
-        azure_deployment_name: str = '',
-        azure_api_version: str = '',
-) -> Union[BaseLLM, BaseChatModel, None]:
+def get_langchain_llm(provider: str, model: str, max_new_tokens: int = 4096, api_key: Optional[str] = None) -> Any:
     """
-    Get an LLM based on the provider and model specified.
-
-    :param provider: The LLM provider. Valid values are `hf` for Hugging Face.
-    :param model: The name of the LLM.
-    :param max_new_tokens: The maximum number of tokens to generate.
-    :param api_key: API key or access token to use.
-    :param azure_endpoint_url: Azure OpenAI endpoint URL.
-    :param azure_deployment_name: Azure OpenAI deployment name.
-    :param azure_api_version: Azure OpenAI API version.
-    :return: An instance of the LLM or Chat model; `None` in case of any error.
+    Get a LangChain LLM instance for the specified provider and model.
+    
+    :param provider: Provider ID ('ollama', 'openai').
+    :param model: Model name.
+    :param max_new_tokens: Maximum tokens to generate.
+    :param api_key: API key for providers that require it (e.g., OpenAI).
+    :return: LangChain LLM instance.
     """
-
-    if provider == GlobalConfig.PROVIDER_HUGGING_FACE:
-        from langchain_community.llms.huggingface_endpoint import HuggingFaceEndpoint
-
-        logger.debug('Getting LLM via HF endpoint: %s', model)
-        return HuggingFaceEndpoint(
-            repo_id=model,
-            max_new_tokens=max_new_tokens,
-            top_k=40,
-            top_p=0.95,
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            repetition_penalty=1.03,
-            streaming=True,
-            huggingfacehub_api_token=api_key or GlobalConfig.HUGGINGFACEHUB_API_TOKEN,
-            return_full_text=False,
-            stop_sequences=['</s>'],
-        )
-
-    if provider == GlobalConfig.PROVIDER_GOOGLE_GEMINI:
-        from google.generativeai.types.safety_types import HarmBlockThreshold, HarmCategory
-        from langchain_google_genai import GoogleGenerativeAI
-
-        logger.debug('Getting LLM via Google Gemini: %s', model)
-        return GoogleGenerativeAI(
-            model=model,
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            max_tokens=max_new_tokens,
-            timeout=None,
-            max_retries=2,
-            google_api_key=api_key,
-            safety_settings={
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT:
-                    HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT:
-                    HarmBlockThreshold.BLOCK_LOW_AND_ABOVE
-            }
-        )
-
-    if provider == GlobalConfig.PROVIDER_AZURE_OPENAI:
-        from langchain_openai import AzureChatOpenAI
-
-        logger.debug('Getting LLM via Azure OpenAI: %s', model)
-
-        # The `model` parameter is not used here; `azure_deployment` points to the desired name
-        return AzureChatOpenAI(
-            azure_deployment=azure_deployment_name,
-            api_version=azure_api_version,
-            azure_endpoint=azure_endpoint_url,
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            max_tokens=max_new_tokens,
-            timeout=None,
-            max_retries=1,
-            api_key=api_key,
-        )
-
-    if provider == GlobalConfig.PROVIDER_COHERE:
-        from langchain_cohere.llms import Cohere
-
-        logger.debug('Getting LLM via Cohere: %s', model)
-        return Cohere(
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            max_tokens=max_new_tokens,
-            timeout_seconds=None,
-            max_retries=2,
-            cohere_api_key=api_key,
-            streaming=True,
-        )
-
-    if provider == GlobalConfig.PROVIDER_TOGETHER_AI:
-        from langchain_together import Together
-
-        logger.debug('Getting LLM via Together AI: %s', model)
-        return Together(
-            model=model,
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            together_api_key=api_key,
-            max_tokens=max_new_tokens,
-            top_k=40,
-            top_p=0.90,
-        )
-
-    if provider == GlobalConfig.PROVIDER_OLLAMA:
-        from langchain_ollama.llms import OllamaLLM
-
-        logger.debug('Getting LLM via Ollama: %s', model)
-        return OllamaLLM(
-            model=model,
-            temperature=GlobalConfig.LLM_MODEL_TEMPERATURE,
-            num_predict=max_new_tokens,
-            format='json',
-            streaming=True,
-        )
-
-    return None
+    try:
+        if provider == 'openai':
+            logger.info(f"Creating OpenAI LLM with model: {model}")
+            if not api_key:
+                logger.error("No API key provided for OpenAI")
+                return None
+                
+            return ChatOpenAI(
+                model=model,
+                openai_api_key=api_key,
+                max_tokens=max_new_tokens,
+                streaming=True
+            )
+        else:
+            logger.info(f"Creating Ollama LLM with model: {model}")
+            return ChatOllama(
+                model=model,
+                num_predict=max_new_tokens
+            )
+    except Exception as e:
+        logger.error(f"Error creating LLM instance: {e}")
+        return None
 
 
 if __name__ == '__main__':
