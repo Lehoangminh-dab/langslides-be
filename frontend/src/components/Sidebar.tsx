@@ -209,3 +209,183 @@ const Sidebar: React.FC<SidebarProps> = ({ isInSettingsPanel = false }) => {
       >
         <TemplateSelector
           templates={templates}
+          currentTemplate={currentTemplate}
+          onChange={(template) => {
+            saveScrollPosition();
+            setTemplate(template);
+          }}
+        />
+      </CollapsibleSection>
+      
+      {/* Slide Count Selection */}
+      <CollapsibleSection 
+        title="Slide Count" 
+        icon={<Sliders size={18} className="mr-2" />}
+        sectionKey="slideCount"
+      >
+        <SlideCountSelector />
+      </CollapsibleSection>
+      
+      {/* Model Selection */}
+      <CollapsibleSection 
+        title="AI Model" 
+        icon={<Cpu size={18} className="mr-2" />}
+        sectionKey="model"
+      >
+        <div className="space-y-2">
+          <div className="flex space-x-2">
+            <button
+              className={`flex-1 px-3 py-1.5 text-sm rounded-md ${
+                modelSource === 'ollama'
+                  ? 'bg-blue-100 text-blue-800 font-medium'
+                  : 'bg-gray-100 text-gray-700'
+              }`}
+              onClick={() => {
+                saveScrollPosition();
+                setModelSource('ollama');
+              }}
+            >
+              Ollama
+            </button>
+            <button
+              className={`flex-1 px-3 py-1.5 text-sm rounded-md ${
+                modelSource === 'openai'
+                  ? 'bg-blue-100 text-blue-800 font-medium'
+                  : 'bg-gray-100 text-gray-700'
+              }`}
+              onClick={() => {
+                saveScrollPosition();
+                setModelSource('openai');
+              }}
+            >
+              OpenAI
+            </button>
+          </div>
+        </div>
+        
+        {modelSource === 'ollama' ? (
+          <div className="space-y-2">
+            <div className="flex mt-2">
+              <input
+                type="text"
+                value={model}
+                onChange={handleModelChange}
+                placeholder="Model name (e.g. llama3)"
+                className="flex-1 px-3 py-2 border rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+              />
+              <button
+                onClick={handleModelSubmit}
+                className="bg-blue-600 text-white px-3 py-2 rounded-r-md hover:bg-blue-700 transition"
+                disabled={changingModel}
+              >
+                {changingModel ? (
+                  <div className="w-4 h-4 border-t-2 border-white rounded-full animate-spin mx-auto"></div>
+                ) : (
+                  'Set'
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">Enter the name of any Ollama model you have installed locally.</p>
+          </div>
+        ) : (
+          <OpenAIModelSelector />
+        )}
+      </CollapsibleSection>
+      
+      {/* Google Drive Toggle */}
+      <CollapsibleSection 
+        title="Upload to Google Drive" 
+        icon={<Download size={18} className="mr-2" />}
+        sectionKey="gdrive"
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-700">Auto Upload</p>
+          <button
+            onClick={() => {
+              saveScrollPosition();
+              setUseGDrive(!useGDrive);
+            }}
+            className="focus:outline-none"
+            disabled={changingGDriveSettings}
+            aria-label={useGDrive ? "Disable Google Drive upload" : "Enable Google Drive upload"}
+          >
+            {changingGDriveSettings ? (
+              <div className="w-4 h-4 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+            ) : useGDrive ? (
+              <ToggleRight className="h-6 w-6 text-blue-600" />
+            ) : (
+              <ToggleLeft className="h-6 w-6 text-gray-400" />
+            )}
+          </button>
+        </div>
+        
+        {downloadUrl && (
+          <button
+            onClick={handleGDriveUpload}
+            disabled={uploadingToDrive}
+            className="w-full mt-3 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {uploadingToDrive ? (
+              <div className="w-4 h-4 border-t-2 border-white rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <Upload size={16} className="mr-2" />
+                Upload to Drive
+              </>
+            )}
+          </button>
+        )}
+      </CollapsibleSection>
+      
+      {/* Document Upload with RAG */}
+      <CollapsibleSection 
+        title="Document Upload for RAG" 
+        icon={<FileText size={18} className="mr-2" />}
+        sectionKey="document"
+      >
+        <DocumentUploader />
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-sm text-gray-700">Use Document Context</p>
+          <button
+            onClick={() => {
+              saveScrollPosition();
+              setUsePdfContext(!usePdfContext);
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
+              usePdfContext ? 'bg-blue-600' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`${
+                usePdfContext ? 'translate-x-6' : 'translate-x-1'
+              } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+            />
+          </button>
+        </div>
+      </CollapsibleSection>
+      
+      {/* Clear Chat History Button - more visible and clear intent */}
+      <div className="pt-2">
+        <button
+          onClick={() => {
+            saveScrollPosition();
+            clearHistory();
+          }}
+          disabled={clearingHistory}
+          className="w-full flex items-center justify-center px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+        >
+          {clearingHistory ? (
+            <div className="w-4 h-4 border-t-2 border-red-500 rounded-full animate-spin"></div>
+          ) : (
+            <>
+              <Trash2 size={16} className="mr-2" />
+              Clear Chat History
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Sidebar;
