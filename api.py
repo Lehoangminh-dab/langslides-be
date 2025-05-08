@@ -1340,7 +1340,7 @@ async def process_document(file: UploadFile = File(...), session_id: str = Form(
         
         # Check if this exact document has been processed before in the database
         existing_file = db.get_file_by_hash(doc_hash)
-        existing_file = False
+        # existing_file = False
         if existing_file:
             collection_name = existing_file['collection_name']
             logger.info(f"Exact duplicate document detected! Using collection: {collection_name}")
