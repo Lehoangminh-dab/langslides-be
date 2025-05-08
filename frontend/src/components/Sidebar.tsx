@@ -210,9 +210,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isInSettingsPanel = false }) => {
         <TemplateSelector
           templates={templates}
           currentTemplate={currentTemplate}
-          onChange={(template) => {
+          onChange={async (template) => {
             saveScrollPosition();
-            setTemplate(template);
+            await setTemplate(template);
           }}
         />
       </CollapsibleSection>
